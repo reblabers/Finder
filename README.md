@@ -26,9 +26,9 @@ Clientスクリプトをオブジェクトにアタッチすると、Inspector�
 Mode
 
 * NullAlways : 常に null を返すようになります。主にデバッグ用です。
-* ByScope : From:Component から scope 内を検索します。
-* ByReferenceComponents : 指定した Component[] から検索します。
-* ByReferenceGameObjects : 指定した GameObject[] から検索します。
+* ByScope : from:Component から scope の中を検索します。
+* ByReferenceComponents : 指定した Component[] の中から検索します。
+* ByReferenceGameObjects : 指定した GameObject[] の中から検索します。
 * ByName : 指定した name:String のゲームオブジェクト内から検索します。
 * ByTag : 指定したタグを持つゲームオブジェクト内から検索します。
 

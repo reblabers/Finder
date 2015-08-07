@@ -1,4 +1,9 @@
-## FinderAsser
+## FinderAsset
+
+### 概要
+簡単にいうと Inspectorで操作可能なGetComponent です。
+
+コード量削減／仕様変更への耐性向上／原因特定のサポートに貢献できると思います。
 
 ### プロジェクトへの追加方法
 Finder.unitypackageをUnity上にドロップするか、Assets内にあるスクリプトをそのままプロジェクトに追加してください。

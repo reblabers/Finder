@@ -1,9 +1,9 @@
 ## Finder Asset
 
 ### 概要
-簡単にいうと Inspectorで操作可能なGetComponent です。
+簡単にいうと Inspectorで操作可能なGetComponent群 です。
 
-コード量削減／仕様変更への耐性向上／原因特定のサポートに貢献できると思います。
+コンポーネントまわりのコード量削減／仕様変更への耐性向上／エラー原因特定のサポートに貢献できると思います。
 
 ### プロジェクトへの追加方法
 「Finder_beta1.unitypackageをUnity上にドロップ」するか、「Finderフォルダをそのままプロジェクトに追加」してください。
@@ -18,12 +18,12 @@ public class Client : MonoBehaviour {
   public Finder finder;
   
   void Start () {
-    var allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
+    bool allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
     if (!allGreen) {
       // Componentがみつからないときの処理をかく
     }
       
-    var allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
+    bool allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
     if (!allGreens) {
       // 上記同様...
     }
@@ -36,13 +36,15 @@ public class Client : MonoBehaviour {
 }
 ```
 
-Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できます。また Require(), Requires() で必要なコンポーネントを明示・確認できます。コンソール上の Error Pause と併用して利用することをオススメします。
+Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できます。また Require(), Requires() で必要なコンポーネントを明示・依存関係の確認ができます。
+
+コンソールの Error Pause と併用して利用することをオススメします。
 
 ### メリット
-* null チェックなどが不要となる
-* Missingなどによりコンポーネントを見失ったときエラーの把握が容易になる
-* データやオブジェクトの配置が変わった場合でもコードの修正が不要になる
-* 複数のコンポーネントの受け取りを1つのフィールドにまとめることができる
+* null チェックなどが不要
+* Missingなどによりコンポーネントを見失ったときでも、エラー把握が容易になる
+* データやオブジェクトの配置が変わった場合でも、コードを修正せずに依存関係を解消できる
+* 複数のコンポーネントを1つのフィールドから型セーフで取得できる
 * 比較的安全にコンポーネント間を疎結合にできる
 
 など
@@ -63,10 +65,10 @@ Option
 * Exception [Not Found] : 検索失敗時 Exception を投げます。チェックをはずすと null を返すようになります。
   - Jump Hook : コンソール上の Exception をクリックした先を、Finder呼び出し元 or JumpHookメソッド(後述)にフックする。
 
-### 追記（JumpHook）
-コンソールからのジャンプ先を Finder呼び出し元 にできていますが、Unityの仕様変更により使用できなくなる可能性があるため、安全策としてJumpHookメソッドによるフックも実装しています。JumpHookメソッドの定義は任意のため、もしエラーをクリックしてもFinder呼び出し元へジャンプできない場合のみ、使用することをオススメします。
+### JumpHook（任意）
+コンソールのエラーからのソースへのジャンプ先を Finder呼び出し元 にしていますが、現在の仕組みがUnityの仕様変更により使用できなくなる可能性があるため、安全策としてJumpHookメソッドによるフックも実装しています。JumpHookメソッドの定義は任意のため、もしエラーをクリックしても Finder呼び出し元 へジャンプできない場合のみ、使用することをオススメします。
 
-以下のメソッドを Finder を使用するクラスに定義すると、少なくともファイルへジャンプできるようになります（行までは移動できないです）。
+以下のメソッドを finder.Get<...>() などFinderのメソッドを呼んでいるクラスに定義すると、少なくともそのファイルまではジャンプできるようになります（行の移動まではできない）。
 
 ```c#:Client.cs
 public class Client : MonoBehaviour {
@@ -74,7 +76,7 @@ public class Client : MonoBehaviour {
   static System.Exception JumpHook (string message) {
     return new MissingComponentException (message);
   }
-	
+  
   public Finder finder;
   // ...
 }

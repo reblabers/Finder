@@ -31,7 +31,6 @@ public class Finder
 	
 	readonly Dictionary<System.Type, Component> cache = new Dictionary<System.Type, Component> ();
 	readonly Dictionary<System.Type, Component[]> caches = new Dictionary<System.Type, Component[]> ();
-	MethodInfo jumpHookMethod = null;
 	
 	bool IsDefaultState {
 		get { return !(exceptionWhenNotFound & isHookJump); }
@@ -135,14 +134,11 @@ public class Finder
 
 	private System.Exception JumpHookedException(string message) {
 		if (Debug.isDebugBuild) {
-			if (jumpHookMethod == null) {
-				var callingType = GetTypeOfCaller ();		
-				jumpHookMethod = callingType.GetMethod ("JumpHook", 
-				                                           BindingFlags.NonPublic | BindingFlags.Public |
-				                                           BindingFlags.Static 
-				);
-			}
-						
+			var callingType = GetTypeOfCaller ();	
+			var jumpHookMethod = callingType.GetMethod ("JumpHook", 
+			                                           BindingFlags.NonPublic | BindingFlags.Public |
+			                                           BindingFlags.Static);
+			
 			var hooker = OuterJumpHook (jumpHookMethod, message);
 			if (hooker == null)
 				hooker = CreateMissingComponentException (message);

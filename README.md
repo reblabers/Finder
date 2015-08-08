@@ -36,7 +36,7 @@ public class Client : MonoBehaviour {
 }
 ```
 
-Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できます。また Require(), Requires() で必要なコンポーネントを明示・確認できます。
+Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できます。また Require(), Requires() で必要なコンポーネントを明示・確認できます。コンソール上の Error Pause と併用して利用することをオススメします。
 
 ### メリット
 * null チェックなどが不要となる

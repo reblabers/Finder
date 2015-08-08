@@ -3,6 +3,10 @@ using System.Linq;
 using UnityEngine;
 using System.Collections.ObjectModel;
 
+using System.Runtime.CompilerServices;
+using System.Reflection.Emit;
+using System.Reflection;
+
 [System.Serializable]
 public class Finder
 {
@@ -124,19 +128,33 @@ public class Finder
 		return new MissingComponentException (string.Format(format, args));
 	}
 
-	private static string GetCalling() {
-		string[] stack = UnityEngine.StackTraceUtility.ExtractStackTrace ().Split ('\n');
-		return stack[2];
+	#region hock jumping to code when click error on console 
+
+	private static UnityException JumpHockedException(string message) {
+		var calling = GetCalling ();
+		var hocker = JumpHocker(message);
+		return new UnityException (string.Format ("Called by {0}", calling), hocker);
 	}
 
-	#region Get()
+	private static string GetCalling() {
+		string[] stack = UnityEngine.StackTraceUtility.ExtractStackTrace ().Split ('\n');
+		return stack[3];
+	}
+		
+	private static MissingComponentException JumpHocker(string msg) {
+		return new MissingComponentException (msg);
+	}
 
+	#endregion
+
+	#region Get()
+	
 	public T Get<T> () where T : Component
 	{
 		try {
 			return GetEnter<T> (from);
 		} catch (MissingComponentException e) {
-			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+			throw JumpHockedException (e.Message);
 		}
 	}
 
@@ -145,7 +163,7 @@ public class Finder
 		try {
 			return GetEnter<T> (root);
 		} catch (MissingComponentException e) {
-			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+			throw JumpHockedException (e.Message);
 		}
 	}
 
@@ -337,7 +355,7 @@ public class Finder
 		try {
 			return GetsEnter<T> (from);
 		} catch (MissingComponentException e) {
-			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+			throw JumpHockedException (e.Message);
 		}
 	}
 	
@@ -346,7 +364,7 @@ public class Finder
 		try {
 			return GetsEnter<T> (root);
 		} catch (MissingComponentException e) {
-			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+			throw JumpHockedException (e.Message);
 		}
 	}
 

@@ -49,7 +49,7 @@ Clientスクリプトをオブジェクトにアタッチすると、Inspector�
 Mode
 
 * NullAlways : 常に null を返すようになります。主にデバッグ用です。
-* ByScope : from:Component から scope の中を検索します。
+* ByScope : from:Component から scope の中を検索します。Inspectorを開いたとき from:Component == null であれば、自動で this(Finderの利用しているスクリプトのコンポーネント) が割り当てられます。
 * ByReferenceComponents : 指定した Component[] の中から検索します。
 * ByReferenceGameObjects : 指定した GameObject[] の中から検索します。
 * ByName : 指定した name:String のゲームオブジェクト内から検索します。

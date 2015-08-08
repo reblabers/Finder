@@ -18,14 +18,16 @@ public class Client : MonoBehaviour {
   public Finder finder;
   
   void Start () {
-		var allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
-		if (!allGreen)
-		  // Componentがみつからないときの処理をかく
-
-		var allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
-		if (!allGreens)
-		  // ...
-	}
+    var allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
+    if (!allGreen) {
+      // Componentがみつからないときの処理をかく
+    }
+      
+    var allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
+    if (!allGreens) {
+      // 上記同様...
+    }
+  }
   
   void Update () {
     Source source = finder.Get<Source> ();      // 検索条件にあてはまる Sourceコンポーネント を1つ取得
@@ -70,8 +72,8 @@ Option
 public class Client : MonoBehaviour {
   // JumpHookメソッド
   static System.Exception JumpHook (string message) {
-		return new MissingComponentException (message);
-	}
+    return new MissingComponentException (message);
+  }
 	
   public Finder finder;
   // ...

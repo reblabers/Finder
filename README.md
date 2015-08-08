@@ -14,8 +14,18 @@ Finderを利用したサンプルコード（Client.cs）は以下の通りで�
 ```c#:Client.cs
 using UnityEngine;
 
-public class Client : MonoBehaviour
+public class Client : MonoBehaviour {
   public Finder finder;
+  
+  void Start () {
+		var allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
+		if (!allGreen)
+		  // Componentがみつからないときの処理をかく
+
+		var allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
+		if (!allGreens)
+		  // ...
+	}
   
   void Update () {
     Source source = finder.Get<Source> ();      // 検索条件にあてはまる Sourceコンポーネント を1つ取得
@@ -24,7 +34,7 @@ public class Client : MonoBehaviour
 }
 ```
 
-Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できるようになります。
+Clientスクリプトをオブジェクトにアタッチすると、Inspectorから検索条件を設定できるようになり、その検索条件に応じたコンポーネントを Get(), Gets() できます。また Require(), Requires() で必要なコンポーネントを明示・確認できます。
 
 ### メリット
 * null チェックなどが不要となる
@@ -48,4 +58,22 @@ Mode
 Option
 
 * cache : 検索結果をキャッシュします。
-* Exception When Not Found : 検索失敗時 Exception を投げます。チェックをはずすと null を返すようになります。
+* Exception [Not Found] : 検索失敗時 Exception を投げます。チェックをはずすと null を返すようになります。
+  - Jump Hook : コンソール上の Exception をクリックした先を、Finder呼び出し元 or JumpHookメソッド(後述)にフックする。
+
+### 追記（JumpHook）
+コンソールからのジャンプ先を Finder呼び出し元 にできていますが、Unityの仕様変更により使用できなくなる可能性があるため、安全策としてJumpHookメソッドによるフックも実装しています。JumpHookメソッドの定義は任意のため、もしエラーをクリックしてもFinder呼び出し元へジャンプできない場合のみ、使用することをオススメします。
+
+以下のメソッドを Finder を使用するクラスに定義すると、少なくともファイルへジャンプできるようになります（行までは移動できないです）。
+
+```c#:Client.cs
+public class Client : MonoBehaviour {
+  // JumpHookメソッド
+  static System.Exception JumpHook (string message) {
+		return new MissingComponentException (message);
+	}
+	
+  public Finder finder;
+  // ...
+}
+```

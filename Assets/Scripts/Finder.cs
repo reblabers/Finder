@@ -28,15 +28,15 @@ public class Finder
 	[SerializeField] string tag = "Untagged";
 	[SerializeField] Component from;
 	[SerializeField] bool isHookJump = true;
-
-	bool IsDefaultState {
-		get { return !(exceptionWhenNotFound & isHookJump); }
-	}
 	
 	readonly Dictionary<System.Type, Component> cache = new Dictionary<System.Type, Component> ();
 	readonly Dictionary<System.Type, Component[]> caches = new Dictionary<System.Type, Component[]> ();
-	System.Exception hookException = null;
+	MethodInfo jumpHookMethod = null;
 	
+	bool IsDefaultState {
+		get { return !(exceptionWhenNotFound & isHookJump); }
+	}
+
 	public FindModes FindMode {
 		get { return findMode; }
 		set { this.findMode = value; }
@@ -135,21 +135,18 @@ public class Finder
 
 	private System.Exception JumpHookedException(string message) {
 		if (Debug.isDebugBuild) {
-			var callingType = GetTypeOfCaller ();		
-			var method = callingType.GetMethod ("JumpHook", 
-			                                           BindingFlags.NonPublic | BindingFlags.Public |
-			                                           BindingFlags.Static 
-			);
-						
-			if (hookException == null) {
-				var temp = OuterJumpHook (method, message);
-				if (temp != null)
-					hookException = temp;
-				else
-					hookException = new MissingComponentException (message);
+			if (jumpHookMethod == null) {
+				var callingType = GetTypeOfCaller ();		
+				jumpHookMethod = callingType.GetMethod ("JumpHook", 
+				                                           BindingFlags.NonPublic | BindingFlags.Public |
+				                                           BindingFlags.Static 
+				);
 			}
+						
+			var hooker = OuterJumpHook (jumpHookMethod, message);
+			if (hooker == null)
+				hooker = CreateMissingComponentException (message);
 
-			System.Exception hooker = hookException;
 			var callingFile = GetFileOfCaller ();
 			return new MissingComponentException(string.Format ("Called by {0}", callingFile), hooker);
 		}
@@ -171,6 +168,9 @@ public class Finder
 
 	#pragma warning disable 168
 	private System.Exception OuterJumpHook(MethodInfo method, string message) {
+		if (method == null)
+			return null;
+
 		try {
 			return method.Invoke(null, new object[] { message }) as System.Exception;
 		} catch (System.Exception ignore) {
@@ -191,7 +191,7 @@ public class Finder
 		try {
 			return GetEnter<T> (from);
 		} catch (MissingComponentException e) {
-			throw JumpHookedException (e.Message);
+    		throw JumpHookedException (e.Message);
 		}
 	}
 

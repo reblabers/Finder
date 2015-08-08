@@ -2,9 +2,6 @@
 using System.Linq;
 using UnityEngine;
 using System.Collections.ObjectModel;
-
-using System.Runtime.CompilerServices;
-using System.Reflection.Emit;
 using System.Reflection;
 
 [System.Serializable]
@@ -30,10 +27,16 @@ public class Finder
 	[SerializeField] string name;
 	[SerializeField] string tag = "Untagged";
 	[SerializeField] Component from;
+	[SerializeField] bool isHookJump = true;
+
+	bool IsDefaultState {
+		get { return !(exceptionWhenNotFound & isHookJump); }
+	}
 	
 	readonly Dictionary<System.Type, Component> cache = new Dictionary<System.Type, Component> ();
 	readonly Dictionary<System.Type, Component[]> caches = new Dictionary<System.Type, Component[]> ();
-
+	System.Exception hookException = null;
+	
 	public FindModes FindMode {
 		get { return findMode; }
 		set { this.findMode = value; }
@@ -128,22 +131,53 @@ public class Finder
 		return new MissingComponentException (string.Format(format, args));
 	}
 
-	#region hock jumping to code when click error on console 
+	#region hook jumping to code when click error on console 
 
-	private static UnityException JumpHockedException(string message) {
-		var calling = GetCalling ();
-		var hocker = JumpHocker(message);
-		return new UnityException (string.Format ("Called by {0}", calling), hocker);
+	private System.Exception JumpHookedException(string message) {
+		if (Debug.isDebugBuild) {
+			var callingType = GetTypeOfCaller ();		
+			var method = callingType.GetMethod ("JumpHook", 
+			                                           BindingFlags.NonPublic | BindingFlags.Public |
+			                                           BindingFlags.Static 
+			);
+						
+			if (hookException == null) {
+				var temp = OuterJumpHook (method, message);
+				if (temp != null)
+					hookException = temp;
+				else
+					hookException = new MissingComponentException (message);
+			}
+
+			System.Exception hooker = hookException;
+			var callingFile = GetFileOfCaller ();
+			return new MissingComponentException(string.Format ("Called by {0}", callingFile), hooker);
+		}
+		return new MissingComponentException();
 	}
 
-	private static string GetCalling() {
-		string[] stack = UnityEngine.StackTraceUtility.ExtractStackTrace ().Split ('\n');
+	// Maybe, not work in release-build
+	private string GetFileOfCaller() {
+		var stack = UnityEngine.StackTraceUtility.ExtractStackTrace ().Split ('\n');
 		return stack[3];
 	}
-		
-	private static MissingComponentException JumpHocker(string msg) {
-		return new MissingComponentException (msg);
+
+	// Not work in release-build
+	private System.Type GetTypeOfCaller() {
+		var frame = new System.Diagnostics.StackFrame(3);
+		var method = frame.GetMethod ();
+		return method.DeclaringType;
 	}
+
+	#pragma warning disable 168
+	private System.Exception OuterJumpHook(MethodInfo method, string message) {
+		try {
+			return method.Invoke(null, new object[] { message }) as System.Exception;
+		} catch (System.Exception ignore) {
+			return null;
+		}
+	}
+	#pragma warning restore 168
 
 	#endregion
 
@@ -151,19 +185,25 @@ public class Finder
 	
 	public T Get<T> () where T : Component
 	{
+		if (IsDefaultState)
+			return GetEnter<T> (from);
+
 		try {
 			return GetEnter<T> (from);
 		} catch (MissingComponentException e) {
-			throw JumpHockedException (e.Message);
+			throw JumpHookedException (e.Message);
 		}
 	}
 
 	public T Get<T> (Component root) where T : Component
 	{
+		if (IsDefaultState)
+			return GetEnter<T> (root);
+
 		try {
 			return GetEnter<T> (root);
 		} catch (MissingComponentException e) {
-			throw JumpHockedException (e.Message);
+			throw JumpHookedException (e.Message);
 		}
 	}
 
@@ -188,7 +228,7 @@ public class Finder
 			cache [type] = component;
 		return component;
 	}
-
+	
 	private T DynamicGet<T> (Component root, bool throwException) where T : Component
 	{
 		switch (findMode) {
@@ -352,19 +392,25 @@ public class Finder
 	
 	public T[] Gets<T> () where T : Component
 	{
+		if (IsDefaultState)
+			return GetsEnter<T> (from);
+
 		try {
 			return GetsEnter<T> (from);
 		} catch (MissingComponentException e) {
-			throw JumpHockedException (e.Message);
+			throw JumpHookedException (e.Message);
 		}
 	}
 	
 	public T[] Gets<T> (Component root) where T : Component
 	{
+		if (IsDefaultState)
+			return GetsEnter<T> (root);
+
 		try {
 			return GetsEnter<T> (root);
 		} catch (MissingComponentException e) {
-			throw JumpHockedException (e.Message);
+			throw JumpHookedException (e.Message);
 		}
 	}
 
@@ -542,6 +588,63 @@ public class Finder
 		default:
 			throw CreateUnityException ("Scope is illegal");
 		}
+	}
+
+	#endregion
+
+	#region Require(), Requires()
+
+	#pragma warning disable 168
+	public bool Require<T> () where T : Component
+	{
+		if (IsDefaultState) {
+			var component = DynamicGet<T> (from, exceptionWhenNotFound);
+			return component != null;
+		}
+
+		try {
+			var component = DynamicGet<T> (from, exceptionWhenNotFound);
+			return component != null;
+		} catch (MissingComponentException ignore) {
+			throw JumpHookedException (string.Format("Require {0}", typeof(T)));
+		}
+	}
+	#pragma warning restore 168
+
+	public bool Requires (params System.Type[] types)
+	{ 
+		var notFound = new List<System.Type> ();
+		foreach (var type in types) {
+			if (type == null)
+				continue;
+
+			MethodInfo method = typeof(Finder).GetMethod("DynamicGet", BindingFlags.NonPublic | BindingFlags.Instance);
+			MethodInfo generic = method.MakeGenericMethod(type);
+			var component = generic.Invoke(this, new object[] { from, false });
+			if (component == null)
+				notFound.Add (type);
+		}
+
+		if (0 < notFound.Count) {
+			if (exceptionWhenNotFound) {
+				var strTypes = notFound
+					.Select (com => com.ToString())
+					.ToArray();
+				var join = string.Join (" / ", strTypes);
+
+				if (IsDefaultState)
+					throw new MissingComponentException(string.Format("Requires {0}", join));
+
+				try {
+					throw new MissingComponentException(string.Format("Requires {0}", join));
+				} catch (MissingComponentException e) {
+					throw JumpHookedException (e.Message);
+				}
+			}
+			return false;
+		}
+
+		return true;
 	}
 
 	#endregion

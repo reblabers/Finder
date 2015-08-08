@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if UNITY_EDITOR
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,27 +13,27 @@ public class FinderDrawer : PropertyDrawer
 	{
 		var propMode = property.FindPropertyRelative ("findMode");
 		if (propMode.hasMultipleDifferentValues)
-			return 5;
+			return 6;
 		
 		var mode = (Finder.FindModes)propMode.intValue;
 		if (mode == Finder.FindModes.ByName ||
 		    mode == Finder.FindModes.ByScope)
-			return 5;
+			return 6;
 
 		if (mode == Finder.FindModes.ByReferenceComponents) {
 			var com = property.FindPropertyRelative("referenceComponents");
-			return 3 + (com.isExpanded ? com.arraySize + 2 : 1);
-		}
-
-		if (mode == Finder.FindModes.ByTag)
-			return 4;
-
-		if (mode == Finder.FindModes.ByReferenceGameObjects) {
-			var com = property.FindPropertyRelative("referenceObjects");
 			return 4 + (com.isExpanded ? com.arraySize + 2 : 1);
 		}
 
-		return 3;
+		if (mode == Finder.FindModes.ByTag)
+			return 5;
+
+		if (mode == Finder.FindModes.ByReferenceGameObjects) {
+			var com = property.FindPropertyRelative("referenceObjects");
+			return 5 + (com.isExpanded ? com.arraySize + 2 : 1);
+		}
+
+		return 4;
 	}
 	
 	public override float GetPropertyHeight (SerializedProperty property, GUIContent label)
@@ -125,7 +126,14 @@ public class FinderDrawer : PropertyDrawer
 		position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
 
 		// Return null when not found
-		EditorGUI.PropertyField(position, property.FindPropertyRelative("exceptionWhenNotFound"));
+		EditorGUI.PropertyField(position, property.FindPropertyRelative("exceptionWhenNotFound"), new GUIContent("Exception [Not Found]"));
+		position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+		
+		// Hook Jump
+		EditorGUI.indentLevel += 1;
+		EditorGUI.BeginDisabledGroup(!property.FindPropertyRelative("exceptionWhenNotFound").boolValue);
+		EditorGUI.PropertyField(position, property.FindPropertyRelative("isHookJump"), new GUIContent("> Hook Jump "));
+		EditorGUI.EndDisabledGroup();
 
 		EditorGUI.EndProperty();
 	}
@@ -151,3 +159,4 @@ public class FinderDrawer : PropertyDrawer
 		return list.ToArray ();
 	}
 }
+#endif

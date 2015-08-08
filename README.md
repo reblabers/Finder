@@ -1,4 +1,4 @@
-## FinderAsset
+## Finder Asset
 
 ### 概要
 簡単にいうと Inspectorで操作可能なGetComponent です。

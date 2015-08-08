@@ -15,7 +15,8 @@ public class FinderDrawer : PropertyDrawer
 			return 5;
 		
 		var mode = (Finder.FindModes)propMode.intValue;
-		if (mode == Finder.FindModes.ByName)
+		if (mode == Finder.FindModes.ByName ||
+		    mode == Finder.FindModes.ByScope)
 			return 5;
 
 		if (mode == Finder.FindModes.ByReferenceComponents) {
@@ -23,8 +24,8 @@ public class FinderDrawer : PropertyDrawer
 			return 3 + (com.isExpanded ? com.arraySize + 2 : 1);
 		}
 
-		if (mode == Finder.FindModes.ByScope)
-			return 5;
+		if (mode == Finder.FindModes.ByTag)
+			return 4;
 
 		if (mode == Finder.FindModes.ByReferenceGameObjects) {
 			var com = property.FindPropertyRelative("referenceObjects");
@@ -63,13 +64,15 @@ public class FinderDrawer : PropertyDrawer
 		// Auto Bind
 		if (propMode.hasMultipleDifferentValues || mode == Finder.FindModes.ByScope)
 		{
+			// Master Script
+			EditorGUI.PropertyField(position, property.FindPropertyRelative("from"));
+			if (property.FindPropertyRelative("from").objectReferenceValue == null)
+				property.FindPropertyRelative("from").objectReferenceValue = property.serializedObject.targetObject;
+			position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+
 			// Scope Selector
 			var propScope = property.FindPropertyRelative("scope");
 			Popup<Finder.Scopes> (position, new GUIContent("Scope"), propScope);
-			position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-
-			// Master Script
-			EditorGUI.PropertyField(position, property.FindPropertyRelative("root"));
 			position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
 		}
 		
@@ -108,8 +111,17 @@ public class FinderDrawer : PropertyDrawer
 			position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
 		}
 
+		// Tag box.
+		if (propMode.hasMultipleDifferentValues || mode == Finder.FindModes.ByTag)
+		{
+			var a = EditorGUI.TagField (position, new GUIContent("Tag"), property.FindPropertyRelative ("tag").stringValue);
+			property.FindPropertyRelative ("tag").stringValue = a;
+			// EditorGUI.PropertyField (position, property.FindPropertyRelative ("tag"));
+			position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+		}
+
 		// Cache mode
-		EditorGUI.PropertyField(position, property.FindPropertyRelative("isCache"));
+		EditorGUI.PropertyField(position, property.FindPropertyRelative("isCache"), new GUIContent("Cache"));
 		position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
 
 		// Return null when not found

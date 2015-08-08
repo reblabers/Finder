@@ -8,7 +8,7 @@ public class Finder
 {
 	public enum FindModes
 	{
-		NullAlways, ByScope, ByReferenceComponents, ByReferenceGameObjects, ByName
+		NullAlways, ByScope, ByReferenceComponents, ByReferenceGameObjects, ByName, ByTag
 	}
 
 	public enum Scopes
@@ -24,7 +24,8 @@ public class Finder
 	[SerializeField] GameObject[] referenceObjects = new GameObject[1] { null };
 	[SerializeField] Scopes scope = Scopes.Current;
 	[SerializeField] string name;
-	[SerializeField] Component root;
+	[SerializeField] string tag = "Untagged";
+	[SerializeField] Component from;
 	
 	readonly Dictionary<System.Type, Component> cache = new Dictionary<System.Type, Component> ();
 	readonly Dictionary<System.Type, Component[]> caches = new Dictionary<System.Type, Component[]> ();
@@ -44,9 +45,9 @@ public class Finder
 		set { this.exceptionWhenNotFound = value; }
 	}
 
-	public Component Root {
-		get { return root; }
-		set { this.root = value; }
+	public Component From {
+		get { return from; }
+		set { this.from = value; }
 	}
 
 	public Scopes Scope {
@@ -89,7 +90,7 @@ public class Finder
 	public void ByScope(Component root, Scopes scope) {
 		this.findMode = FindModes.ByScope;
 		this.scope = scope;
-		this.root = root;
+		this.from = root;
 	}
 
 	public void ByReferenceComponents(params Component[] components) {
@@ -114,19 +115,45 @@ public class Finder
 		this.scope = scope;
 		this.name = name;
 	}
+	
+	private UnityException CreateUnityException(string format, params object[] args) {
+		return new UnityException (string.Format(format, args));
+	}
+	
+	private MissingComponentException CreateMissingComponentException(string format, params object[] args) {
+		return new MissingComponentException (string.Format(format, args));
+	}
 
-	// # Get --------------------------
+	private static string GetCalling() {
+		string[] stack = UnityEngine.StackTraceUtility.ExtractStackTrace ().Split ('\n');
+		return stack[2];
+	}
+
+	#region Get()
 
 	public T Get<T> () where T : Component
 	{
-		return Get<T> (root);
+		try {
+			return GetEnter<T> (from);
+		} catch (MissingComponentException e) {
+			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+		}
 	}
 
 	public T Get<T> (Component root) where T : Component
 	{
+		try {
+			return GetEnter<T> (root);
+		} catch (MissingComponentException e) {
+			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+		}
+	}
+
+	private T GetEnter<T> (Component root) where T : Component
+	{
 		if (isCache)
 			return StaticGet<T> (root);
-		return DynamicGet<T> (root);
+		return DynamicGet<T> (root, exceptionWhenNotFound);
 	}
 
 	private T StaticGet<T> (Component root) where T : Component
@@ -138,26 +165,29 @@ public class Finder
 			return (T) cache [type];
 
 		// get component 
-		var component = DynamicGet<T> (root);
+		var component = DynamicGet<T> (root, exceptionWhenNotFound);
 		if (component != null)
 			cache [type] = component;
 		return component;
 	}
 
-	private T DynamicGet<T> (Component root) where T : Component
+	private T DynamicGet<T> (Component root, bool throwException) where T : Component
 	{
 		switch (findMode) {
 		case FindModes.ByScope:
-			return DynamicGetByScope<T> (root);
+			return DynamicGetByScope<T> (root, throwException);
 			
 		case FindModes.ByName:
-			return DynamicGetByName<T> (root);
+			return DynamicGetByName<T> (throwException);
+
+		case FindModes.ByTag:
+			return DynamicGetByTag<T> (throwException);
 			
 		case FindModes.ByReferenceComponents:
-			return DynamicGetByReferenceComponents<T> (root);
+			return DynamicGetByReferenceComponents<T> (throwException);
 
 		case FindModes.ByReferenceGameObjects:
-			return DynamicGetByReferenceGameObjects<T> (root);
+			return DynamicGetByReferenceGameObjects<T> (throwException);
 
 		case FindModes.NullAlways:
 			return null;
@@ -166,18 +196,14 @@ public class Finder
 			throw new UnityException("Illegal bind-mode");
 		}
 	}
-		
-	private UnityException CreateUnityException(string format, params object[] args) {
-		return new UnityException (string.Format(format, args));
-	}
 
-	private T DynamicGetByScope<T> (Component root) where T : Component
+	private T DynamicGetByScope<T> (Component root, bool throwException) where T : Component
 	{
 		var component = FindInScope<T> (root, scope);
 
 		if (component == null) {
-			if (exceptionWhenNotFound)
-				throw CreateUnityException ("Not found component in {1} of {0}", root, scope);
+			if (throwException)
+				throw CreateMissingComponentException ("Not found component in {1} of {0}", root, scope);
 			return null;
 		}
 
@@ -185,14 +211,14 @@ public class Finder
 		return component;
 	}
 
-	private T DynamicGetByName<T> (Component root) where T : Component
+	private T DynamicGetByName<T> (bool throwException) where T : Component
 	{
 		// find gameobject
 		var obj = GameObject.Find (name);
 
 		if (obj == null) {
-			if (exceptionWhenNotFound)
-				throw CreateUnityException ("Not found {0} [GameObject]", name);
+			if (throwException)
+				throw CreateMissingComponentException ("Not found {0} [GameObject]", name);
 			return null;
 		}
 
@@ -200,8 +226,8 @@ public class Finder
 		var component = FindInScope<T> (obj, scope);
 
 		if (component == null) {
-			if (exceptionWhenNotFound)
-				throw CreateUnityException ("Not found component in {1} of {0} [GameObject]", name, scope);
+			if (throwException)
+				throw CreateMissingComponentException ("Not found component in {1} of {0} [GameObject]", name, scope);
 			return null;
 		}
 
@@ -209,7 +235,33 @@ public class Finder
 		return component;
 	}
 
-	private T DynamicGetByReferenceComponents<T> (Component root) where T : Component
+	private T DynamicGetByTag<T> (bool throwException) where T : Component
+	{
+		// find gameobject
+		var objects = GameObject.FindGameObjectsWithTag (tag);
+
+		if (objects.Length == 0) {
+			if (throwException)
+				throw CreateMissingComponentException ("Not found {0} [GameObject] with tag:{1}", name, tag);
+			return null;
+		}
+
+		// find in reference components
+		foreach (var obj in objects) {
+			if (obj == null)
+				continue;
+			var component = FindInScope<T> (obj, Scopes.Current);
+			if (component != null)
+				return component;	// found
+		}
+		
+		// NOT found
+		if (throwException)
+			throw CreateMissingComponentException ("Not contains {0} in gameobjects with tag:{2}", typeof(T), tag);
+		return null;
+	}
+
+	private T DynamicGetByReferenceComponents<T> (bool throwException) where T : Component
 	{
 		// check field
 		if (referenceComponents == null)
@@ -223,12 +275,12 @@ public class Finder
 		}
 
 		// NOT found
-		if (exceptionWhenNotFound)
-			throw CreateUnityException ("Not contains {0} in Reference components", typeof(T));
+		if (throwException)
+			throw CreateMissingComponentException ("Not contains {0} in Reference components", typeof(T));
 		return null;
 	}
 
-	private T DynamicGetByReferenceGameObjects<T> (Component root) where T : Component
+	private T DynamicGetByReferenceGameObjects<T> (bool throwException) where T : Component
 	{
 		// check field
 		if (referenceObjects == null)
@@ -244,15 +296,15 @@ public class Finder
 		}
 
 		// NOT found
-		if (exceptionWhenNotFound)
-			throw CreateUnityException ("Not contains {0} in {1} of Reference gameobjects", typeof(T), scope);
+		if (throwException)
+			throw CreateMissingComponentException ("Not contains {0} in {1} of Reference gameobjects", typeof(T), scope);
 		return null;
 	}
 
 	private T FindInScope<T> (Component root, Scopes scope) where T : Component
 	{
 		if (root == null)
-			throw new UnityException ("Must set root before find");
+			throw CreateUnityException ("Must set 'from' before find");
 		return FindInScope<T> (root.gameObject, scope);
 	}
 
@@ -272,53 +324,71 @@ public class Finder
 			return Object.FindObjectOfType<T> ();
 			
 		default:
-			throw new UnityException ("Scope is illegal");
+			throw CreateUnityException ("Scope is illegal");
 		}
 	}
+
+	#endregion
 	
-	// # Gets --------------------------
+	#region Gets()
 	
 	public T[] Gets<T> () where T : Component
 	{
-		return Gets<T> (root);
+		try {
+			return GetsEnter<T> (from);
+		} catch (MissingComponentException e) {
+			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+		}
 	}
 	
 	public T[] Gets<T> (Component root) where T : Component
 	{
+		try {
+			return GetsEnter<T> (root);
+		} catch (MissingComponentException e) {
+			throw new MissingComponentException (string.Format ("{0} / Called by {1}", e.Message, GetCalling()));
+		}
+	}
+
+	private T[] GetsEnter<T> (Component root) where T : Component
+	{
 		if (isCache)
 			return StaticGets<T> (root);
-		return DynamicGets<T> (root);
+		return DynamicGets<T> (root, exceptionWhenNotFound);
 	}
 
 	private T[] StaticGets<T> (Component root) where T : Component
 	{
 		var type = typeof(T);
-		
+
 		// return component if component exists in cache
 		if (caches.ContainsKey (type))
 			return (T[]) caches [type];
-		
+
 		// get component 
-		var components = DynamicGets<T> (root);
-		if (components == null)
+		var components = DynamicGets<T> (root, exceptionWhenNotFound);
+		if (components != null)
 			caches [type] = components;
 		return components;
 	}
 	
-	private T[] DynamicGets<T> (Component root) where T : Component
+	private T[] DynamicGets<T> (Component root, bool throwException) where T : Component
 	{
 		switch (findMode) {
 		case FindModes.ByScope:
 			return DynamicGetsByScope<T> (root);
 			
 		case FindModes.ByName:
-			return DynamicGetsByName<T> (root);
+			return DynamicGetsByName<T> (throwException);
+
+		case FindModes.ByTag:
+			return DynamicGetsByTag<T> (throwException);
 			
 		case FindModes.ByReferenceComponents:
-			return DynamicGetsByReferenceComponents<T> (root);
+			return DynamicGetsByReferenceComponents<T> (throwException);
 			
 		case FindModes.ByReferenceGameObjects:
-			return DynamicGetsByReferenceGameObjects<T> (root);
+			return DynamicGetsByReferenceGameObjects<T> (throwException);
 			
 		case FindModes.NullAlways:
 			return null;
@@ -333,28 +403,57 @@ public class Finder
 		return FindsInScope<T> (root, scope);
 	}
 	
-	private T[] DynamicGetsByName<T> (Component root) where T : Component
+	private T[] DynamicGetsByName<T> (bool throwException) where T : Component
 	{
 		// find gameobject
 		var obj = GameObject.Find (name);
 		
 		if (obj == null) {
-			if (exceptionWhenNotFound)
-				throw CreateUnityException ("Not found {0} [GameObject]", name);
+			if (throwException)
+				throw CreateMissingComponentException ("Not found {0} [GameObject]", name);
 			return new T [0];
 		}
 		
 		// find component in gameobject
 		var components = FindsInScope<T> (obj, scope);
 		
-		if (components.Length <= 0 && exceptionWhenNotFound)
-			throw CreateUnityException ("Not found component in {1} of {0} [GameObject]", name, scope);
+		if (components.Length <= 0 && throwException)
+			throw CreateMissingComponentException ("Not found component in {1} of {0} [GameObject]", name, scope);
 		
 		// found or empty
 		return components;
 	}
+
+	private T[] DynamicGetsByTag<T> (bool throwException) where T : Component
+	{
+		// find gameobject
+		var objects = GameObject.FindGameObjectsWithTag (tag);
+		
+		if (objects.Length == 0) {
+			if (throwException)
+				throw CreateMissingComponentException ("Not found {0} [GameObject] with tag:{1}", name, tag);
+			return null;
+		}
+		
+		// find in reference components
+		var components = new List<T>();
+		foreach (var obj in objects) {
+			if (obj == null)
+				continue;
+			var founds = FindsInScope<T> (obj, Scopes.Current);
+			foreach (var component in founds)
+				components.Add (component);		// fou
+		}
+
+		// NOT found
+		if (components.Count <= 0 && throwException)
+			throw CreateMissingComponentException ("Not contains {0} in gameobjects with tag:{1}", typeof(T), tag);
+		
+		// found or empty
+		return components.ToArray();
+	}
 	
-	private T[] DynamicGetsByReferenceComponents<T> (Component root) where T : Component
+	private T[] DynamicGetsByReferenceComponents<T> (bool throwException) where T : Component
 	{
 		// check field
 		if (referenceComponents == null)
@@ -369,14 +468,14 @@ public class Finder
 		}
 		
 		// NOT found
-		if (components.Count <= 0 && exceptionWhenNotFound)
-			throw CreateUnityException ("Not contains {0} in Reference components", typeof(T));
+		if (components.Count <= 0 && throwException)
+			throw CreateMissingComponentException ("Not contains {0} in Reference components", typeof(T));
 
 		// found or empty
 		return components.ToArray();
 	}
 	
-	private T[] DynamicGetsByReferenceGameObjects<T> (Component root) where T : Component
+	private T[] DynamicGetsByReferenceGameObjects<T> (bool throwException) where T : Component
 	{
 		// check field
 		if (referenceObjects == null)
@@ -393,8 +492,8 @@ public class Finder
 		}
 
 		// NOT found
-		if (components.Count <= 0 && exceptionWhenNotFound)
-			throw CreateUnityException ("Not contains {0} in {1} of Reference gameobjects", typeof(T), scope);
+		if (components.Count <= 0 && throwException)
+			throw CreateMissingComponentException ("Not contains {0} in {1} of Reference gameobjects", typeof(T), scope);
 
 		// found or empty
 		return components.ToArray();
@@ -403,7 +502,7 @@ public class Finder
 	private T[] FindsInScope<T> (Component root, Scopes scope) where T : Component
 	{
 		if (root == null)
-			throw new UnityException ("Must set root before find");
+			throw CreateUnityException ("Must set 'from' before find");
 		return FindsInScope<T> (root.gameObject, scope);
 	}
 
@@ -423,7 +522,9 @@ public class Finder
 			return Object.FindObjectsOfType<T> ();
 			
 		default:
-			throw new UnityException ("Scope is illegal");
+			throw CreateUnityException ("Scope is illegal");
 		}
-	}	
+	}
+
+	#endregion
 }

@@ -16,6 +16,13 @@ public class Finder
 	{
 		Current, Children, Parent, All
 	}
+
+	/// <summary>
+ 	/// Create and return new instance of Finder
+	/// </summary>
+	public static Finder Create() {
+		return new Finder ();
+	}
 	
 	[SerializeField] bool isCache = false;
 	[SerializeField] FindModes findMode = FindModes.ByScope;
@@ -166,6 +173,58 @@ public class Finder
 		this.from = from;
 		ClearCache ();
 		return this;
+	}
+
+	/// <summary>
+	/// Change the search mode of finder to 'ByScope' and 'Current scope'.
+	/// </summary>
+	/// <param name="from">the root component for search</param>
+ 	public Finder ByCurrentScope(Component from) {
+		if (from == null) {
+			if (isHookJump)
+				throw JumpHookedException("Argument cannot be null [Parameter name: from]");
+			throw new System.ArgumentNullException ("from"); 
+		}
+		return ByScope (from, Scopes.Current);
+	}
+
+	/// <summary>
+	/// Change the search mode of finder to 'ByScope' and 'Parent scope'.
+	/// </summary>
+	/// <param name="from">the root component for search</param>
+	public Finder ByParentScope(Component from) {
+		if (from == null) {
+			if (isHookJump)
+				throw JumpHookedException("Argument cannot be null [Parameter name: from]");
+			throw new System.ArgumentNullException ("from"); 
+		}
+		return ByScope (from, Scopes.Parent);
+	}
+
+	/// <summary>
+	/// Change the search mode of finder to 'ByScope' and 'Children scope'.
+	/// </summary>
+	/// <param name="from">the root component for search</param>
+	public Finder ByChildrenScope(Component from) {
+		if (from == null) {
+			if (isHookJump)
+				throw JumpHookedException("Argument cannot be null [Parameter name: from]");
+			throw new System.ArgumentNullException ("from"); 
+		}
+		return ByScope (from, Scopes.Children);
+	}
+
+	/// <summary>
+	/// Change the search mode of finder to 'ByScope' and 'All scope'.
+	/// </summary>
+	/// <param name="from">the root component for search</param>
+	public Finder ByAllScope(Component from) {
+		if (from == null) {
+			if (isHookJump)
+				throw JumpHookedException("Argument cannot be null [Parameter name: from]");
+			throw new System.ArgumentNullException ("from"); 
+		}
+		return ByScope (from, Scopes.All);
 	}
 	
 	/// <summary>

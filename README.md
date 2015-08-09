@@ -1,12 +1,10 @@
-## Finder Asset
-
-## 概要
+## Finder Asset の概要
 簡単にいうと Inspectorで操作可能なGetComponent群 です。
 
 コンポーネントまわりのコード量削減／仕様変更への耐性向上／エラー原因特定のサポートに貢献できると思います。
 
 ### プロジェクトへの追加方法
-「Finder_beta1.unitypackageをUnity上にドロップ」するか、「Finderフォルダをそのままプロジェクトに追加」してください。
+「Finder_beta2.unitypackageをUnity上にドロップ」するか、「Finderフォルダをそのままプロジェクトに追加」してください。
 
 ### 使い方
 Finderを利用したサンプルコード（Client.cs）は以下の通りです。
@@ -55,7 +53,7 @@ Clientスクリプトをオブジェクトにアタッチすると、Inspector�
 など
 
 
-## 詳細
+## 詳細情報
 
 ### 指定可能な検索条件
 Mode
@@ -73,26 +71,8 @@ Option
 * Exception [Not Found] : 検索失敗時 Exception を投げます（ただしDebug時のみ有効）。チェックをはずすと null を返すようになります。
   - Jump Hook : コンソール上の Exception をクリックした先を、Finder呼び出し元 or JumpHookメソッド(後述)にフックする。
 
-### JumpHook（任意）
-コンソールのエラーからのソースへのジャンプ先を Finder呼び出し元 にしていますが、現在の仕組みがUnityの仕様変更により使用できなくなる可能性があるため、安全策としてJumpHookメソッドによるフックも実装しています。JumpHookメソッドの定義は任意のため、もしエラーをクリックしても Finder呼び出し元 へジャンプできない場合のみ、使用することをオススメします。
-
-以下のメソッドを finder.Get<...>() などFinderのメソッドを呼んでいるクラスに定義すると、少なくともそのファイルまではジャンプできるようになります（行の移動まではできない）。
-
-```c#:Client.cs
-public class Client : MonoBehaviour {
-  // JumpHookメソッド
-  static System.Exception JumpHook (string message) {
-    return new MissingComponentException (message);
-  }
-  
-  public Finder finder;
-
-  // ...
-}
-```
-
 ### コード上からの利用
-次のようにコードからFinderを設定することもできます。コードに条件を明示したいときなどに利用できます。
+次のようにコードからFinderを設定することもできます。検索条件を明示したいときや一時的な検索などで利用できます。
 （new Finderで生成可能）
 
 ```c#:Client.cs
@@ -112,8 +92,8 @@ public class Client : MonoBehaviour {
 ```
 
 ByScopeモードでは検索の基点（from）が必要ですが、基点はGetする瞬間に変更することができます。
-例えば動的に生成した GameObject から検索したいときなどに利用できます。
-なお、キャッシュは型で判断しているので、併用して利用する場合はご注意ください。
+たとえば、動的に生成した GameObject から検索したいときなどに利用できます。
+なおキャッシュは型で判断しているので、併用する場合はご注意ください。
 
 ```c#:Client.cs
 using UnityEngine;
@@ -130,5 +110,23 @@ public class Client : MonoBehaviour {
   void Update () {
     Source source = finder.Get<Source> (this.obj);      // obj の中から Source を検索
   }
+}
+```
+
+### JumpHook（任意）
+コンソールのエラーからのソースへのジャンプ先を Finder呼び出し元 にしていますが、現在の仕組みがUnityの仕様変更により使用できなくなる可能性があるため、安全策としてJumpHookメソッドによるフックも実装しています。JumpHookメソッドの定義は任意のため、もしエラーをクリックしても Finder呼び出し元 へジャンプできない場合のみ、使用することをオススメします。
+
+以下のメソッドを finder.Get<...>() などのFinderメソッドを呼んでいるクラスに定義すると、少なくともそのファイルまではジャンプできるようになります（行の移動まではできない）。
+
+```c#:Client.cs
+public class Client : MonoBehaviour {
+  // JumpHookメソッド
+  static System.Exception JumpHook (string message) {
+    return new MissingComponentException (message);
+  }
+  
+  public Finder finder;
+
+  // ...
 }
 ```

@@ -77,11 +77,11 @@ Option
 
 ```c#:Client.cs
 public class Client : MonoBehaviour {
-  Finder finder = new Finder ();
+  Finder finder = Finder.Create ();  // new Finder() も可
 
   void Start() {
     finder
-      .ByScope (this, Finder.Scopes.Children)
+      .ByCurrentScope (this)
       .WithCache ()
       .ExceptionWhenNotFound ()
       .Require <Source> ();

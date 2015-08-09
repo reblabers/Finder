@@ -72,8 +72,7 @@ Option
   - Jump Hook : コンソール上の Exception をクリックした先を、Finder呼び出し元 or JumpHookメソッド(後述)にフックする。
 
 ### コード上からの利用
-次のようにコードからFinderを設定することもできます。検索条件を明示したいときや一時的な検索などで利用できます。
-（new Finderで生成可能）
+次のようにコードからFinderを設定することもできます。検索条件を明示したいときや一時的な検索で利用できます。
 
 ```c#:Client.cs
 public class Client : MonoBehaviour {

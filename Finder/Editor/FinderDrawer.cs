@@ -46,15 +46,16 @@ public class FinderDrawer : PropertyDrawer
 	public override void OnGUI (Rect position, SerializedProperty property, GUIContent label)
 	{
 		EditorGUI.BeginProperty (position, label, property);
-		
+
 		position.height = EditorGUIUtility.singleLineHeight;
 		position.y += 3;
 		
 		// First line: bind mode selector.
 		var propMode = property.FindPropertyRelative ("findMode");
+
 		Popup<Finder.FindModes> (position, label, propMode);
 		position.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-		                    
+		               
 		// Indent the line.
 		position.width -= 16;
 		position.x += 16;
@@ -134,7 +135,7 @@ public class FinderDrawer : PropertyDrawer
 		EditorGUI.BeginDisabledGroup(!property.FindPropertyRelative("exceptionWhenNotFound").boolValue);
 		EditorGUI.PropertyField(position, property.FindPropertyRelative("isHookJump"), new GUIContent("> Hook Jump "));
 		EditorGUI.EndDisabledGroup();
-
+		
 		EditorGUI.EndProperty();
 	}
 

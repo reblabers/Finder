@@ -1,6 +1,6 @@
 ## Finder Asset
 
-### 概要
+## 概要
 簡単にいうと Inspectorで操作可能なGetComponent群 です。
 
 コンポーネントまわりのコード量削減／仕様変更への耐性向上／エラー原因特定のサポートに貢献できると思います。
@@ -18,12 +18,12 @@ public class Client : MonoBehaviour {
   public Finder finder;
   
   void Start () {
-    bool allGreen = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
-    if (!allGreen) {
+    bool found = finder.Require<Camera> (); // 指定したコンポーネントが存在しない場合は Exception or false
+    if (!found) {
       // Componentがみつからないときの処理をかく
     }
       
-    bool allGreens = finder.Requires (typeof(Camera), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
+    bool allGreens = finder.Requires (typeof(Source), typeof(Transform));  // 複数のコンポーネントを同時に指定できる
     if (!allGreens) {
       // 上記同様...
     }
@@ -32,6 +32,11 @@ public class Client : MonoBehaviour {
   void Update () {
     Source source = finder.Get<Source> ();      // 検索条件にあてはまる Sourceコンポーネント を1つ取得
     Source[] sources = finder.Gets<Source> ();  // 検索条件にあてはまる Sourceコンポーネント をすべて取得
+
+    // or
+
+    Source source = finder.GetComponent<Source> ();      // Get<Source>() と同等
+    Source[] sources = finder.GetComponents<Source> ();  // Gets<Source>() と同等
   }
 }
 ```
@@ -49,6 +54,9 @@ Clientスクリプトをオブジェクトにアタッチすると、Inspector�
 
 など
 
+
+## 詳細
+
 ### 指定可能な検索条件
 Mode
 
@@ -62,7 +70,7 @@ Mode
 Option
 
 * cache : 検索結果をキャッシュします。
-* Exception [Not Found] : 検索失敗時 Exception を投げます。チェックをはずすと null を返すようになります。
+* Exception [Not Found] : 検索失敗時 Exception を投げます（ただしDebug時のみ有効）。チェックをはずすと null を返すようになります。
   - Jump Hook : コンソール上の Exception をクリックした先を、Finder呼び出し元 or JumpHookメソッド(後述)にフックする。
 
 ### JumpHook（任意）
@@ -78,6 +86,49 @@ public class Client : MonoBehaviour {
   }
   
   public Finder finder;
+
   // ...
+}
+```
+
+### コード上からの利用
+次のようにコードからFinderを設定することもできます。コードに条件を明示したいときなどに利用できます。
+（new Finderで生成可能）
+
+```c#:Client.cs
+public class Client : MonoBehaviour {
+  Finder finder = new Finder ();
+
+  void Start() {
+    finder
+      .ByScope (this, Finder.Scopes.Children)
+      .WithCache ()
+      .ExceptionWhenNotFound ()
+      .Require <Source> ();
+  }
+
+  // ...
+}
+```
+
+ByScopeモードでは検索の基点（from）が必要ですが、基点はGetする瞬間に変更することができます。
+例えば動的に生成した GameObject から検索したいときなどに利用できます。
+なお、キャッシュは型で判断しているので、併用して利用する場合はご注意ください。
+
+```c#:Client.cs
+using UnityEngine;
+
+public class Client : MonoBehaviour {
+  public Finder finder;
+  GameObject obj;
+
+  void Start () {
+    this.obj = new GameObject();
+    this.obj.AddComponent<Source> ();
+  }
+  
+  void Update () {
+    Source source = finder.Get<Source> (this.obj);      // obj の中から Source を検索
+  }
 }
 ```
